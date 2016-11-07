@@ -24,10 +24,10 @@ use Symfony\Component\Workflow\MarkingStore\UniqueTransitionOutputInterface;
  */
 class Workflow
 {
-    private $definition;
-    private $markingStore;
-    private $dispatcher;
-    private $name;
+    protected $definition;
+    protected $markingStore;
+    protected $dispatcher;
+    protected $name;
 
     public function __construct(Definition $definition, MarkingStoreInterface $markingStore, EventDispatcherInterface $dispatcher = null, $name = 'unnamed')
     {
@@ -170,12 +170,36 @@ class Workflow
         return $enabled;
     }
 
+    /**
+     * Returns all available transitions.
+     *
+     * @param object $subject A subject
+     *
+     * @return Transition[] All available transitions
+     */
+    public function getAvailableTransitions($subject)
+    {
+        $available = array();
+        $marking = $this->getMarking($subject);
+
+        foreach ($this->definition->getTransitions() as $transition) {
+            foreach ($transition->getFroms() as $place) {
+                if ($marking->has($place)) {
+                    $available[] = $transition;
+                    continue 2;
+                }
+            }
+        }
+
+        return $available;
+    }
+
     public function getName()
     {
         return $this->name;
     }
 
-    private function doCan($subject, Marking $marking, Transition $transition)
+    protected function doCan($subject, Marking $marking, Transition $transition)
     {
         foreach ($transition->getFroms() as $place) {
             if (!$marking->has($place)) {
@@ -190,7 +214,7 @@ class Workflow
         return true;
     }
 
-    private function guardTransition($subject, Marking $marking, Transition $transition)
+    protected function guardTransition($subject, Marking $marking, Transition $transition)
     {
         if (null === $this->dispatcher) {
             return;
@@ -205,7 +229,7 @@ class Workflow
         return $event->isBlocked();
     }
 
-    private function leave($subject, Transition $transition, Marking $marking)
+    protected function leave($subject, Transition $transition, Marking $marking)
     {
         if (null !== $this->dispatcher) {
             $event = new Event($subject, $marking, $transition);
@@ -223,7 +247,7 @@ class Workflow
         }
     }
 
-    private function transition($subject, Transition $transition, Marking $marking)
+    protected function transition($subject, Transition $transition, Marking $marking)
     {
         if (null === $this->dispatcher) {
             return;
@@ -236,7 +260,7 @@ class Workflow
         $this->dispatcher->dispatch(sprintf('workflow.%s.transition.%s', $this->name, $transition->getName()), $event);
     }
 
-    private function enter($subject, Transition $transition, Marking $marking)
+    protected function enter($subject, Transition $transition, Marking $marking)
     {
         if (null !== $this->dispatcher) {
             $event = new Event($subject, $marking, $transition);
@@ -254,7 +278,7 @@ class Workflow
         }
     }
 
-    private function announce($subject, Transition $initialTransition, Marking $marking)
+    protected function announce($subject, Transition $initialTransition, Marking $marking)
     {
         if (null === $this->dispatcher) {
             return;
